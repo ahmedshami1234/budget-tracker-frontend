@@ -11,14 +11,32 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+  
+    const { name, email, password } = form;
+  
     try {
-      await axios.post('http://localhost:5001/api/register', form);
-      navigate('/');
+      // Register user
+      await axios.post("http://localhost:5001/api/register", {
+        name,
+        email,
+        password,
+      });
+  
+      // Auto-login after successful registration
+      const res = await axios.post("http://localhost:5001/api/login", {
+        email,
+        password,
+      });
+  
+      // Save token to localStorage
+      localStorage.setItem("token", res.data.token);
+      navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed');
+      console.error("Registration/Login error:", err);
+      setError("Registration or login failed. Please check your input.");
     }
   };
+  
 
   return (
     <div
@@ -96,7 +114,7 @@ function Register() {
           </form>
 
           <p className="text-[#4e7097] text-sm text-center mt-4 underline">
-            Already have an account? <Link to="/" className="hover:text-blue-600">Sign in</Link>
+            Already have an account? <Link to="/login" className="hover:text-blue-600">Sign in</Link>
           </p>
         </div>
       </main>

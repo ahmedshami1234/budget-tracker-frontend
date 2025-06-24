@@ -1,16 +1,41 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Navbar from "../components/Navbar";
+import axiosInstance from "../api/axiosInstance";
+import axios from "axios";
+
 
 
 export default function Dashboard() {
-  const [transactions, setTransactions] = useState([
-    { id: 1, title: "Salary", amount: 5000, type: "income", date: "2024-01-15" },
-    { id: 2, title: "Groceries", amount: -150, type: "expense", date: "2024-01-14" },
-    { id: 3, title: "Freelance", amount: 800, type: "income", date: "2024-01-13" },
-    { id: 4, title: "Utilities", amount: -200, type: "expense", date: "2024-01-12" },
-  ])
+  const [transactions, setTransactions] = useState([]);
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+  
+      try {
+        const res = await axios.get("http://localhost:5001/api/transactions", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+  
+        const numericTransactions = res.data.map((txn) => ({
+          ...txn,
+          amount: Number(txn.amount),
+        }));
+  
+        setTransactions(numericTransactions);
+      } catch (err) {
+        console.error("Error fetching transactions:", err);
+      }
+    };
+  
+    fetchTransactions();
+  }, []);
+  
+  
+
 
   const [formData, setFormData] = useState({
     title: "",
@@ -21,13 +46,22 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(false)
 
   // Calculate totals
-  const balance = transactions.reduce((sum, transaction) => sum + transaction.amount, 0)
-  const income = transactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, transaction) => sum + transaction.amount, 0)
-  const expenses = Math.abs(
-    transactions.filter((t) => t.type === "expense").reduce((sum, transaction) => sum + transaction.amount, 0),
-  )
+  // Correct balance: income - expenses
+const balance = transactions.reduce((sum, txn) => {
+  const amount = Number(txn.amount);
+  return txn.type === "income" ? sum + amount : sum - amount;
+}, 0);
+
+// Sum all incomes
+const income = transactions
+  .filter((t) => t.type === "income")
+  .reduce((sum, t) => sum + Number(t.amount), 0);
+
+// Sum all expenses (positive)
+const expenses = transactions
+  .filter((t) => t.type === "expense")
+  .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -38,29 +72,31 @@ export default function Dashboard() {
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!formData.title || !formData.amount) return
-
-    setIsLoading(true)
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    const newTransaction = {
-      id: Date.now(),
-      title: formData.title,
-      amount:
-        formData.type === "expense"
-          ? -Math.abs(Number.parseFloat(formData.amount))
-          : Number.parseFloat(formData.amount),
-      type: formData.type,
-      date: new Date().toISOString().split("T")[0],
+    e.preventDefault();
+    if (!formData.title || !formData.amount) return;
+  
+    setIsLoading(true);
+    try {
+      await axiosInstance.post("/transactions", {
+        title: formData.title,
+        amount: formData.amount,
+        type: formData.type,
+      });
+  
+      const res = await axiosInstance.get("/transactions");
+const numericTransactions = res.data.map((txn) => ({
+  ...txn,
+  amount: Number(txn.amount),
+}));
+setTransactions(numericTransactions);
+  
+      setFormData({ title: "", amount: "", type: "income" });
+    } catch (err) {
+      console.error("Error submitting transaction", err);
+    } finally {
+      setIsLoading(false);
     }
-
-    setTransactions((prev) => [newTransaction, ...prev])
-    setFormData({ title: "", amount: "", type: "income" })
-    setIsLoading(false)
-  }
+  };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-US", {
