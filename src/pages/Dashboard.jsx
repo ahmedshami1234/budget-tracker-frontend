@@ -105,6 +105,30 @@ setTransactions(numericTransactions);
     }).format(amount)
   }
 
+  const handleDelete = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`http://localhost:5001/api/transactions/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+  
+      // Refresh transactions
+      const res = await axios.get("http://localhost:5001/api/transactions", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setTransactions(res.data);
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Transaction deletion failed");
+    }
+  };
+  
+  
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
       {/* Fixed Navbar */}
@@ -326,6 +350,15 @@ setTransactions(numericTransactions);
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                           {new Date(transaction.date).toLocaleDateString()}
                         </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+  <button
+    onClick={() => handleDelete(transaction.id)}
+    className="text-red-500 hover:text-red-700 font-medium text-sm"
+  >
+    Delete
+  </button>
+</td>
                       </tr>
                     ))}
                   </tbody>
