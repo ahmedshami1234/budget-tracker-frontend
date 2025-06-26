@@ -11,11 +11,31 @@ import axios from "axios";
 
 
 export default function Dashboard() {
+
+  const [formData, setFormData] = useState({
+    title: "",
+    amount: "",
+    type: "income",
+    category: ""
+  });
+  const [isLoading, setIsLoading] = useState(false)
   const [transactions, setTransactions] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editableTransaction, setEditableTransaction] = useState(null);
+
+  const [categories, setCategories] = useState([
+    { name: "Salary", color: "#16a34a" },
+    { name: "Food", color: "#dc2626" },
+    { name: "Travel", color: "#0284c7" },
+    { name: "Shopping", color: "#9333ea" },
+    { name: "Investment", color: "#0d9488" },
+  ]);
+  
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategory, setNewCategory] = useState({ name: "", color: "#000000" });
+  
 
 
 
@@ -42,17 +62,6 @@ export default function Dashboard() {
   
     fetchTransactions();
   }, []);
-  
-  
-
-
-  const [formData, setFormData] = useState({
-    title: "",
-    amount: "",
-    type: "income",
-  })
-
-  const [isLoading, setIsLoading] = useState(false)
 
   // Calculate totals
   // Correct balance: income - expenses
@@ -73,16 +82,36 @@ const expenses = transactions
 
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
+  
+    if (name === "category" && value === "__add") {
+      const newName = prompt("Enter new category name:");
+      if (!newName) return;
+  
+      const newColor = getRandomColor();
+      const newCategory = { name: newName, color: newColor };
+      setCategories((prev) => [...prev, newCategory]);
+  
+      setFormData((prev) => ({
+        ...prev,
+        category: newName,
+      }));
+      return;
+    }
+  
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-    }))
-  }
+    }));
+  };
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.title || !formData.amount) return;
+    if (!formData.title || !formData.amount || !formData.category) {
+      alert("Please fill in all fields including category.");
+      return;
+    }
   
     setIsLoading(true);
     try {
@@ -90,7 +119,8 @@ const expenses = transactions
         title: formData.title,
         amount: formData.amount,
         type: formData.type,
-      });
+        category: formData.category, //ADDED THIS LINE
+      }); 
   
       const res = await axiosInstance.get("/transactions");
 const numericTransactions = res.data.map((txn) => ({
@@ -99,7 +129,7 @@ const numericTransactions = res.data.map((txn) => ({
 }));
 setTransactions(numericTransactions);
   
-      setFormData({ title: "", amount: "", type: "income" });
+      setFormData({ title: "", amount: "", type: "income" , category: ""});
     } catch (err) {
       console.error("Error submitting transaction", err);
     } finally {
@@ -181,9 +211,19 @@ setTransactions(numericTransactions);
       console.error("Edit error:", err);
       alert("Failed to update transaction.");
     }
-  };
+  };    
+
+  function getRandomColor() {
+    const tailwindColors = ["#f87171", "#60a5fa", "#facc15", "#a78bfa", "#34d399"];
+    return tailwindColors[Math.floor(Math.random() * tailwindColors.length)];
+  }
+
+  function getCategoryColor(name) {
+    const found = categories.find((c) => c.name === name);
+    return found ? found.color : "#94a3b8"; // fallback slate-400
+  }
   
-    
+  
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -304,6 +344,37 @@ setTransactions(numericTransactions);
                     <option value="expense">Expense</option>
                   </select>
                 </div>
+
+                <div>
+  <label htmlFor="category" className="block text-sm font-medium text-[#0e141b] mb-2">
+    Category
+  </label>
+  <select
+    id="category"
+    name="category"
+    value={formData.category}
+    onChange={handleInputChange}
+    className="w-full px-4 py-3 bg-slate-50 border border-[#d0dbe7] rounded-lg focus:ring-2 focus:ring-[#1978e5] focus:border-transparent text-[#0e141b]"
+    required
+  >
+    <option value="">Select a category</option>
+    {categories.map((cat, index) => (
+      <option
+        key={index}
+        value={cat.name}
+        style={{
+          backgroundColor: cat.color,
+          color: "white",
+        }}
+      >
+        {cat.name}
+      </option>
+    ))}
+    <option value="__add">➕ Add New Category</option>
+  </select>
+</div>
+
+
               </div>
               <div className="flex justify-center">
                 <button
@@ -379,6 +450,9 @@ setTransactions(numericTransactions);
       Type
     </th>
     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+  Category
+</th>
+    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
       Date
     </th>
     <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -409,9 +483,29 @@ setTransactions(numericTransactions);
                             {transaction.type === "income" ? "Income" : "Expense"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                          {new Date(transaction.date).toLocaleDateString()}
-                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+  <span
+    className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full"
+    style={{
+      backgroundColor: getCategoryColor(transaction.category),
+      color: "white",
+    }}
+  >
+    {transaction.category || "—"}
+  </span>
+</td>
+
+<td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+  {transaction.date
+    ? new Date(transaction.date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "N/A"}
+</td>
+
+
 
                         <td className="px-6 py-4 whitespace-nowrap text-center space-x-4">
   <button
@@ -450,6 +544,50 @@ setTransactions(numericTransactions);
   onSave={handleEditSave}
   transaction={editableTransaction}
 />
+
+{showCategoryModal && (
+  <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md space-y-4 border border-slate-200">
+      <h2 className="text-lg font-semibold text-[#0e141b]">Add New Category</h2>
+
+      <input
+        type="text"
+        placeholder="Category name"
+        className="w-full px-4 py-2 border border-slate-300 rounded"
+        value={newCategory.name}
+        onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+      />
+
+      <input
+        type="color"
+        value={newCategory.color}
+        onChange={(e) => setNewCategory({ ...newCategory, color: e.target.value })}
+        className="w-full h-10"
+      />
+
+      <div className="flex justify-end gap-2">
+        <button
+          className="px-4 py-2 bg-slate-200 rounded hover:bg-slate-300"
+          onClick={() => setShowCategoryModal(false)}
+        >
+          Cancel
+        </button>
+        <button
+          className="px-4 py-2 bg-[#1978e5] text-white rounded hover:bg-blue-700"
+          onClick={() => {
+            if (!newCategory.name) return;
+            setCategories([...categories, newCategory]);
+            setFormData({ ...formData, category: newCategory.name });
+            setNewCategory({ name: "", color: "#000000" });
+            setShowCategoryModal(false);
+          }}
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
 
     </div>
