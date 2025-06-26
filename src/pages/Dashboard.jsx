@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Navbar from "../components/Navbar";
 import DeleteModal from "../components/DeleteModal";
+import EditModal from "../components/EditModal";
 import axiosInstance from "../api/axiosInstance";
 import axios from "axios";
 
@@ -12,6 +13,9 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editableTransaction, setEditableTransaction] = useState(null);
+
 
 
   useEffect(() => {
@@ -146,8 +150,38 @@ setTransactions(numericTransactions);
     } finally {
       setShowDeleteModal(false);
       setSelectedTransaction(null);
+      
     }
   };
+
+  const openEditModal = (txn) => {
+    setEditableTransaction(txn);
+    setShowEditModal(true);
+  };
+  
+  const handleEditSave = async (updated) => {
+    try {
+      await axiosInstance.put(`/transactions/${updated.id}`, {
+        title: updated.title,
+        amount: updated.amount,
+        type: updated.type,
+      });
+  
+      const res = await axiosInstance.get("/transactions");
+      const numericTransactions = res.data.map((txn) => ({
+        ...txn,
+        amount: Number(txn.amount),
+      }));
+      setTransactions(numericTransactions);
+  
+      setShowEditModal(false);
+      setEditableTransaction(null);
+    } catch (err) {
+      console.error("Edit error:", err);
+      alert("Failed to update transaction.");
+    }
+  };
+  
     
 
   return (
@@ -331,21 +365,25 @@ setTransactions(numericTransactions);
               ) : (
                 <table className="min-w-full divide-y divide-slate-200">
                   <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Title
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Amount
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                    </tr>
-                  </thead>
+  <tr>
+    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+      Title
+    </th>
+    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+      Amount
+    </th>
+    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+      Type
+    </th>
+    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+      Date
+    </th>
+    <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+      Actions
+    </th>
+  </tr>
+</thead>
+
                   <tbody className="bg-white divide-y divide-slate-200">
                     {transactions.map((transaction) => (
                       <tr key={transaction.id} className="hover:bg-slate-50 transition-colors duration-150">
@@ -372,12 +410,20 @@ setTransactions(numericTransactions);
                           {new Date(transaction.date).toLocaleDateString()}
                         </td>
 
-                        <button
-  onClick={() => openDeleteModal(transaction)}
-  className="text-red-500 hover:text-red-700 font-semibold text-sm"
->
-  Delete
-</button>
+                        <td className="px-6 py-4 whitespace-nowrap text-center space-x-4">
+  <button
+    onClick={() => openEditModal(transaction)}
+    className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
+  >
+    Edit
+  </button>
+  <button
+    onClick={() => openDeleteModal(transaction)}
+    className="text-red-500 hover:text-red-700 font-semibold text-sm"
+  >
+    Delete
+  </button>
+</td>
 
                       </tr>
                     ))}
@@ -394,6 +440,14 @@ setTransactions(numericTransactions);
   onConfirm={handleDeleteConfirm}
   transaction={selectedTransaction}
 />
+
+<EditModal
+  isOpen={showEditModal}
+  onClose={() => setShowEditModal(false)}
+  onSave={handleEditSave}
+  transaction={editableTransaction}
+/>
+
 
     </div>
   )
