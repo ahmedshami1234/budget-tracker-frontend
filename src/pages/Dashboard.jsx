@@ -5,6 +5,7 @@ import Navbar from "../components/Navbar";
 import DeleteModal from "../components/DeleteModal";
 import EditModal from "../components/EditModal";
 import ChartSection from "../components/ChartSection";
+import AddCategoryModal from "../components/AddCategoryModal";
 import axiosInstance from "../api/axiosInstance";
 import axios from "axios";
 
@@ -34,6 +35,7 @@ export default function Dashboard() {
   ]);
   
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [newCategory, setNewCategory] = useState({ name: "", color: "#000000" });
   
 
@@ -349,31 +351,30 @@ setTransactions(numericTransactions);
   <label htmlFor="category" className="block text-sm font-medium text-[#0e141b] mb-2">
     Category
   </label>
+  <div className="flex items-center gap-2">
   <select
-    id="category"
-    name="category"
-    value={formData.category}
-    onChange={handleInputChange}
-    className="w-full px-4 py-3 bg-slate-50 border border-[#d0dbe7] rounded-lg focus:ring-2 focus:ring-[#1978e5] focus:border-transparent text-[#0e141b]"
-    required
-  >
-    <option value="">Select a category</option>
-    {categories.map((cat, index) => (
-      <option
-        key={index}
-        value={cat.name}
-        style={{
-          backgroundColor: cat.color,
-          color: "white",
-        }}
-      >
-        {cat.name}
-      </option>
-    ))}
-    <option value="__add">➕ Add New Category</option>
-  </select>
+  id="category"
+  name="category"
+  value={formData.category}
+  onChange={(e) => {
+    if (e.target.value === "__add__") {
+      setShowAddCategoryModal(true); // opens modal
+    } else {
+      handleInputChange(e);
+    }
+  }}
+  className="w-full px-4 py-3 bg-slate-50 border border-[#d0dbe7] rounded-lg focus:ring-2 focus:ring-[#1978e5] focus:border-transparent text-[#0e141b]"
+>
+  <option value="">Select Category</option>
+  {categories.map((cat) => (
+    <option key={cat.id} value={cat.name}>
+      {cat.name}
+    </option>
+  ))}
+  <option value="__add__" onClick={() => setShowCategoryModal(true)} className="text-blue-600">➕ Add Category</option>
+</select>
+  </div>
 </div>
-
 
               </div>
               <div className="flex justify-center">
@@ -588,7 +589,16 @@ setTransactions(numericTransactions);
     </div>
   </div>
 )}
-
+<AddCategoryModal
+  isOpen={showAddCategoryModal}
+  onClose={() => setShowAddCategoryModal(false)}
+  onSave={(newCat) => {
+    // Save to DB or state
+    setCategories([...categories, { ...newCat, id: Date.now() }]);
+    setFormData((prev) => ({ ...prev, category: newCat.name }));
+    setShowAddCategoryModal(false);
+  }}
+/>
 
     </div>
   )
