@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Navbar from "../components/Navbar";
 import DeleteModal from "../components/DeleteModal";
 import EditModal from "../components/EditModal";
+import ChartSection from "../components/ChartSection";
 import axiosInstance from "../api/axiosInstance";
 import axios from "axios";
 
@@ -337,6 +338,8 @@ setTransactions(numericTransactions);
               </div>
             </form>
           </div>
+
+          <div><ChartSection transactions={transactions} /></div>
 
           {/* Transactions Table */}
           <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
