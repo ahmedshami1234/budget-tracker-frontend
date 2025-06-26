@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Navbar from "../components/Navbar";
+import DeleteModal from "../components/DeleteModal";
 import axiosInstance from "../api/axiosInstance";
 import axios from "axios";
 
@@ -9,6 +10,9 @@ import axios from "axios";
 
 export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -126,8 +130,25 @@ setTransactions(numericTransactions);
       alert("Transaction deletion failed");
     }
   };
+
+  const openDeleteModal = (txn) => {
+    setSelectedTransaction(txn);
+    setShowDeleteModal(true);
+  };
   
-  
+  const handleDeleteConfirm = async () => {
+    try {
+      await axiosInstance.delete(`/transactions/${selectedTransaction.id}`);
+      setTransactions(transactions.filter((t) => t.id !== selectedTransaction.id));
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Failed to delete transaction");
+    } finally {
+      setShowDeleteModal(false);
+      setSelectedTransaction(null);
+    }
+  };
+    
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -351,14 +372,13 @@ setTransactions(numericTransactions);
                           {new Date(transaction.date).toLocaleDateString()}
                         </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-  <button
-    onClick={() => handleDelete(transaction.id)}
-    className="text-red-500 hover:text-red-700 font-medium text-sm"
-  >
-    Delete
-  </button>
-</td>
+                        <button
+  onClick={() => openDeleteModal(transaction)}
+  className="text-red-500 hover:text-red-700 font-semibold text-sm"
+>
+  Delete
+</button>
+
                       </tr>
                     ))}
                   </tbody>
@@ -368,6 +388,13 @@ setTransactions(numericTransactions);
           </div>
         </div>
       </div>
+      <DeleteModal
+  isOpen={showDeleteModal}
+  onClose={() => setShowDeleteModal(false)}
+  onConfirm={handleDeleteConfirm}
+  transaction={selectedTransaction}
+/>
+
     </div>
   )
 }
