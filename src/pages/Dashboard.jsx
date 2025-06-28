@@ -25,19 +25,11 @@ export default function Dashboard() {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editableTransaction, setEditableTransaction] = useState(null);
-
-  const [categories, setCategories] = useState([
-    { name: "Salary", color: "#16a34a" },
-    { name: "Food", color: "#dc2626" },
-    { name: "Travel", color: "#0284c7" },
-    { name: "Shopping", color: "#9333ea" },
-    { name: "Investment", color: "#0d9488" },
-  ]);
-  
+  const [categories, setCategories] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [newCategory, setNewCategory] = useState({ name: "", color: "#000000" });
-  
+
 
 
 
@@ -45,68 +37,74 @@ export default function Dashboard() {
     const fetchTransactions = async () => {
       const token = localStorage.getItem("token");
       if (!token) return;
-  
+
       try {
         const res = await axios.get("http://localhost:5001/api/transactions", {
           headers: { Authorization: `Bearer ${token}` },
         });
-  
+
         const numericTransactions = res.data.map((txn) => ({
           ...txn,
           amount: Number(txn.amount),
         }));
-  
+
         setTransactions(numericTransactions);
       } catch (err) {
         console.error("Error fetching transactions:", err);
       }
     };
-  
+
     fetchTransactions();
   }, []);
 
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get("http://localhost:5001/api/categories", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCategories(res.data); // categories is a new state
+      } catch (err) {
+        console.error("Error fetching categories:", err);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+
   // Calculate totals
   // Correct balance: income - expenses
-const balance = transactions.reduce((sum, txn) => {
-  const amount = Number(txn.amount);
-  return txn.type === "income" ? sum + amount : sum - amount;
-}, 0);
+  const balance = transactions.reduce((sum, txn) => {
+    const amount = Number(txn.amount);
+    return txn.type === "income" ? sum + amount : sum - amount;
+  }, 0);
 
-// Sum all incomes
-const income = transactions
-  .filter((t) => t.type === "income")
-  .reduce((sum, t) => sum + Number(t.amount), 0);
+  // Sum all incomes
+  const income = transactions
+    .filter((t) => t.type === "income")
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
-// Sum all expenses (positive)
-const expenses = transactions
-  .filter((t) => t.type === "expense")
-  .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+  // Sum all expenses (positive)
+  const expenses = transactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
 
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-  
-    if (name === "category" && value === "__add") {
-      const newName = prompt("Enter new category name:");
-      if (!newName) return;
-  
-      const newColor = getRandomColor();
-      const newCategory = { name: newName, color: newColor };
-      setCategories((prev) => [...prev, newCategory]);
-  
+    const handleInputChange = (e) => {
+      const { name, value } = e.target;
+    
+      if (name === "category" && value === "__add_new__") {
+        setShowAddCategoryModal(true);  // ✅ open modal instead of prompt
+        return;
+      }
+    
       setFormData((prev) => ({
         ...prev,
-        category: newName,
+        [name]: value,
       }));
-      return;
-    }
-  
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-  
+    };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -114,7 +112,7 @@ const expenses = transactions
       alert("Please fill in all fields including category.");
       return;
     }
-  
+
     setIsLoading(true);
     try {
       await axiosInstance.post("/transactions", {
@@ -122,16 +120,16 @@ const expenses = transactions
         amount: formData.amount,
         type: formData.type,
         category: formData.category, //ADDED THIS LINE
-      }); 
-  
+      });
+
       const res = await axiosInstance.get("/transactions");
-const numericTransactions = res.data.map((txn) => ({
-  ...txn,
-  amount: Number(txn.amount),
-}));
-setTransactions(numericTransactions);
-  
-      setFormData({ title: "", amount: "", type: "income" , category: ""});
+      const numericTransactions = res.data.map((txn) => ({
+        ...txn,
+        amount: Number(txn.amount),
+      }));
+      setTransactions(numericTransactions);
+
+      setFormData({ title: "", amount: "", type: "income", category: "" });
     } catch (err) {
       console.error("Error submitting transaction", err);
     } finally {
@@ -154,7 +152,7 @@ setTransactions(numericTransactions);
           Authorization: `Bearer ${token}`,
         },
       });
-  
+
       // Refresh transactions
       const res = await axios.get("http://localhost:5001/api/transactions", {
         headers: {
@@ -172,7 +170,7 @@ setTransactions(numericTransactions);
     setSelectedTransaction(txn);
     setShowDeleteModal(true);
   };
-  
+
   const handleDeleteConfirm = async () => {
     try {
       await axiosInstance.delete(`/transactions/${selectedTransaction.id}`);
@@ -183,7 +181,7 @@ setTransactions(numericTransactions);
     } finally {
       setShowDeleteModal(false);
       setSelectedTransaction(null);
-      
+
     }
   };
 
@@ -191,29 +189,30 @@ setTransactions(numericTransactions);
     setEditableTransaction(txn);
     setShowEditModal(true);
   };
-  
+
   const handleEditSave = async (updated) => {
     try {
       await axiosInstance.put(`/transactions/${updated.id}`, {
         title: updated.title,
         amount: updated.amount,
         type: updated.type,
+        category: updated.category,
       });
-  
+
       const res = await axiosInstance.get("/transactions");
       const numericTransactions = res.data.map((txn) => ({
         ...txn,
         amount: Number(txn.amount),
       }));
       setTransactions(numericTransactions);
-  
+
       setShowEditModal(false);
       setEditableTransaction(null);
     } catch (err) {
       console.error("Edit error:", err);
       alert("Failed to update transaction.");
     }
-  };    
+  };
 
   function getRandomColor() {
     const tailwindColors = ["#f87171", "#60a5fa", "#facc15", "#a78bfa", "#34d399"];
@@ -222,10 +221,23 @@ setTransactions(numericTransactions);
 
   function getCategoryColor(name) {
     const found = categories.find((c) => c.name === name);
-    return found ? found.color : "#94a3b8"; // fallback slate-400
+    return found ? found.color : "#94a3b8"; // fallback to gray
   }
-  
-  
+
+  const handleAddCategory = async (newCat) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.post("http://localhost:5001/api/categories", newCat, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCategories((prev) => [...prev, res.data]);
+      setFormData((prev) => ({ ...prev, category: res.data.name }));
+    } catch (err) {
+      console.error("Error adding category:", err);
+      alert("Failed to add category");
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -348,33 +360,29 @@ setTransactions(numericTransactions);
                 </div>
 
                 <div>
-  <label htmlFor="category" className="block text-sm font-medium text-[#0e141b] mb-2">
-    Category
-  </label>
-  <div className="flex items-center gap-2">
-  <select
-  id="category"
-  name="category"
-  value={formData.category}
-  onChange={(e) => {
-    if (e.target.value === "__add__") {
-      setShowAddCategoryModal(true); // opens modal
-    } else {
-      handleInputChange(e);
-    }
-  }}
-  className="w-full px-4 py-3 bg-slate-50 border border-[#d0dbe7] rounded-lg focus:ring-2 focus:ring-[#1978e5] focus:border-transparent text-[#0e141b]"
->
-  <option value="">Select Category</option>
-  {categories.map((cat) => (
-    <option key={cat.id} value={cat.name}>
-      {cat.name}
-    </option>
-  ))}
-  <option value="__add__" onClick={() => setShowCategoryModal(true)} className="text-blue-600">➕ Add Category</option>
-</select>
-  </div>
-</div>
+                  <label htmlFor="category" className="block text-sm font-medium text-[#0e141b] mb-2">
+                    Category
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-slate-50 border border-[#d0dbe7] rounded-lg focus:ring-2 focus:ring-[#1978e5] focus:border-transparent text-[#0e141b]"
+                    >
+                      <option value="" disabled>
+                        Select Category
+                      </option>
+                      {categories.map((cat) => (
+                        <option key={cat.id || cat.name} value={cat.name}>
+                          {cat.name}
+                        </option>
+                      ))}
+                      <option key="__add_new__" value="__add_new__">➕ Add New Category</option>
+                    </select>
+
+                  </div>
+                </div>
 
               </div>
               <div className="flex justify-center">
@@ -440,27 +448,27 @@ setTransactions(numericTransactions);
               ) : (
                 <table className="min-w-full divide-y divide-slate-200">
                   <thead className="bg-slate-50">
-  <tr>
-    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-      Title
-    </th>
-    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-      Amount
-    </th>
-    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-      Type
-    </th>
-    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-  Category
-</th>
-    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-      Date
-    </th>
-    <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-      Actions
-    </th>
-  </tr>
-</thead>
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Title
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Category
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
 
                   <tbody className="bg-white divide-y divide-slate-200">
                     {transactions.map((transaction) => (
@@ -477,51 +485,51 @@ setTransactions(numericTransactions);
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              transaction.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                            }`}
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${transaction.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                              }`}
                           >
                             {transaction.type === "income" ? "Income" : "Expense"}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-  <span
-    className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full"
-    style={{
-      backgroundColor: getCategoryColor(transaction.category),
-      color: "white",
-    }}
-  >
-    {transaction.category || "—"}
-  </span>
-</td>
+                          <span
+                            className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full"
+                            style={{
+                              backgroundColor: getCategoryColor(transaction.category),
+                              color: "white",
+                            }}
+                          >
+                            {transaction.category || "—"}
+                          </span>
 
-<td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-  {transaction.date
-    ? new Date(transaction.date).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
-    : "N/A"}
-</td>
+                        </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                          {transaction.date
+                            ? new Date(transaction.date).toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })
+                            : "N/A"}
+                        </td>
 
 
 
                         <td className="px-6 py-4 whitespace-nowrap text-center space-x-4">
-  <button
-    onClick={() => openEditModal(transaction)}
-    className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
-  >
-    Edit
-  </button>
-  <button
-    onClick={() => openDeleteModal(transaction)}
-    className="text-red-500 hover:text-red-700 font-semibold text-sm"
-  >
-    Delete
-  </button>
-</td>
+                          <button
+                            onClick={() => openEditModal(transaction)}
+                            className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => openDeleteModal(transaction)}
+                            className="text-red-500 hover:text-red-700 font-semibold text-sm"
+                          >
+                            Delete
+                          </button>
+                        </td>
 
                       </tr>
                     ))}
@@ -533,73 +541,74 @@ setTransactions(numericTransactions);
         </div>
       </div>
       <DeleteModal
-  isOpen={showDeleteModal}
-  onClose={() => setShowDeleteModal(false)}
-  onConfirm={handleDeleteConfirm}
-  transaction={selectedTransaction}
-/>
-
-<EditModal
-  isOpen={showEditModal}
-  onClose={() => setShowEditModal(false)}
-  onSave={handleEditSave}
-  transaction={editableTransaction}
-/>
-
-{showCategoryModal && (
-  <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center">
-    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md space-y-4 border border-slate-200">
-      <h2 className="text-lg font-semibold text-[#0e141b]">Add New Category</h2>
-
-      <input
-        type="text"
-        placeholder="Category name"
-        className="w-full px-4 py-2 border border-slate-300 rounded"
-        value={newCategory.name}
-        onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteConfirm}
+        transaction={selectedTransaction}
       />
 
-      <input
-        type="color"
-        value={newCategory.color}
-        onChange={(e) => setNewCategory({ ...newCategory, color: e.target.value })}
-        className="w-full h-10"
+      <EditModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSave={handleEditSave}
+        transaction={editableTransaction}
+        categories={categories}
+        onAddCategory={handleAddCategory}
       />
 
-      <div className="flex justify-end gap-2">
-        <button
-          className="px-4 py-2 bg-slate-200 rounded hover:bg-slate-300"
-          onClick={() => setShowCategoryModal(false)}
-        >
-          Cancel
-        </button>
-        <button
-          className="px-4 py-2 bg-[#1978e5] text-white rounded hover:bg-blue-700"
-          onClick={() => {
-            if (!newCategory.name) return;
-            setCategories([...categories, newCategory]);
-            setFormData({ ...formData, category: newCategory.name });
-            setNewCategory({ name: "", color: "#000000" });
-            setShowCategoryModal(false);
-          }}
-        >
-          Add
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-<AddCategoryModal
-  isOpen={showAddCategoryModal}
-  onClose={() => setShowAddCategoryModal(false)}
-  onSave={(newCat) => {
-    // Save to DB or state
-    setCategories([...categories, { ...newCat, id: Date.now() }]);
-    setFormData((prev) => ({ ...prev, category: newCat.name }));
-    setShowAddCategoryModal(false);
-  }}
-/>
 
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md space-y-4 border border-slate-200">
+            <h2 className="text-lg font-semibold text-[#0e141b]">Add New Category</h2>
+
+            <input
+              type="text"
+              placeholder="Category name"
+              className="w-full px-4 py-2 border border-slate-300 rounded"
+              value={newCategory.name}
+              onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+            />
+
+            <input
+              type="color"
+              value={newCategory.color}
+              onChange={(e) => setNewCategory({ ...newCategory, color: e.target.value })}
+              className="w-full h-10"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 bg-slate-200 rounded hover:bg-slate-300"
+                onClick={() => setShowCategoryModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-[#1978e5] text-white rounded hover:bg-blue-700"
+                onClick={() => {
+                  if (!newCategory.name) return;
+                  setCategories([...categories, newCategory]);
+                  setFormData({ ...formData, category: newCategory.name });
+                  setNewCategory({ name: "", color: "#000000" });
+                  setShowCategoryModal(false);
+                }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <AddCategoryModal
+        isOpen={showAddCategoryModal}
+        onClose={() => setShowAddCategoryModal(false)}
+        onSave={(newCat) => {
+          setCategories(prev => [...prev, newCat]); // make sure newCat includes color!
+          setFormData(prev => ({ ...prev, category: newCat.name }));
+        }}
+
+      />
     </div>
   )
 }
